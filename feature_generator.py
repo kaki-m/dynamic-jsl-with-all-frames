@@ -15,7 +15,7 @@ STATIC_FILE_USE_NUM = 12  # 静的指文字の特徴量生成に使用するフ�
 START_INDEX = 20  # 静的指文字の特徴量生成に使用するフレームの開始位置
 
 Name = input("特徴抽出するディレクトリ名を入力: ")
-srcdir = '../kakizaki/data/' + str(Name) + '/preprocessed_coordinates_m/'
+srcdir = '../../kakizaki/data/' + str(Name) + '/preprocessed_coordinates_m/'
 wrtdir = './features/features1/' + str(Name) + '/'
 
 try:
@@ -85,16 +85,7 @@ for i in range(1,42):  # 静的指文字のファイル名を減らしていく
 '''
 # まずはファイル名リストhand_data_listを使って実際のデータをnumpy配列に取ってくる
 
-all_distance_max = []
-all_distance_min = []
-all_distance_average = []
-all_angle_max = []
-all_angle_min = []
-all_angle_average = []
-all_variation = []
-all_direction_average = []
-
-for i in range(len(hand_data_list)):
+for i in tqdm(range(1,len(hand_data_list))):
     frame_num = len(hand_data_list[i])
     split_num = frame_num / 4  # データを時間軸で4分割するため、何個ずつにするか
     raw_data_list = []
@@ -102,12 +93,15 @@ for i in range(len(hand_data_list)):
         # データ読み込み
         data = np.loadtxt(srcdir + hand_data_list[i][j], delimiter=',')
         raw_data_list.append(data)
+    
+    # print(raw_data_list)
     # ここまででraw_data_listに座標データ、frame_numにそのhand_typeのフレーム数が入っている
     start_indexes = [0]
     for j in range(3):
         start_indexes.append(int(start_indexes[j] + split_num))
     
     start_indexes.append(frame_num)
+    # print("start_indexes: " + str(start_indexes))
     # start_indexesに入っている数字から次の数字までの間で一つの特徴量を生成する
     '''
     Distance: average
@@ -115,16 +109,20 @@ for i in range(len(hand_data_list)):
     Variation: 最初のフレームと最後のフレームの移動ベクトル
     Direction: average, 各指が向いている方向を方向ベクトルで示す
     '''
-    distance_average = [0 for j in range(190)]
-    angle_average = [0 for j in range(630)]
-    variation = []
-    direction_average = []
+    all_columns = []
+    all_features = np.array([], dtype = 'float')
+    distance_average = np.array([], dtype = 'float')
+    angle_average = np.array([], dtype = 'float')
+    variation = np.array([], dtype = 'float')
+    thumb_direction_averages = np.array([], dtype = 'float')
+    index_finger_direction_averages = np.array([], dtype = 'float')
+    middle_finger_direction_averages = np.array([], dtype = 'float')
+    ring_finger_direction_averages = np.array([], dtype = 'float')
+    pinkie_finger_direction_averages = np.array([], dtype = 'float')
 
     # 各区切りで得られた特徴量を一時的に保存する変数
-    distance_average_tmp = [0 for j in range(190)]
-    angle_average_tmp = [0 for j in range(630)]
-    variation_tmp = 0
-    direction_average_tmp = 0
+    distance_average_tmp = np.array([0 for j in range(190)], dtype = 'float')
+    angle_average_tmp = np.array([0 for j in range(630)], dtype = 'float')
 
     used_frame_counter = 0
     # csvでculumnの説明として保存する部分を保存
@@ -133,8 +131,13 @@ for i in range(len(hand_data_list)):
     mark3=[]  # variation
     mark4=[]  # direction
 
+    thumb_direction = np.array([0,0,0], dtype = 'float')
+    index_finger_direction = np.array([0,0,0], dtype = 'float')
+    middle_finger_direction = np.array([0,0,0], dtype = 'float')
+    ring_finger_direction = np.array([0,0,0], dtype = 'float')
+    pinkie_finger_direction = np.array([0,0,0], dtype = 'float')
     # raw_data_list[0 -> 1/4]
-    for j in range(start_indexes[0], start_indexes[1]):
+    for j in range(start_indexes[0], start_indexes[1]-1):
         '''
         distanceの生成
         '''
@@ -147,9 +150,9 @@ for i in range(len(hand_data_list)):
                     continue
                 if (j==start_indexes[0]) and (k == 0) and (l == 0):
                     #もし最初の一回目のdistance生成ならmarkを作る
-                    mark1.append("distance" + str(k) + str(l))
+                    mark1.append("1of4_distance" + str(k) +":"+ str(l))
                 # 3次元の点と点同士の距離をdistance_average[1-2などに入れる]
-                distance_average[distance_index] += math.sqrt((raw_data_list[j][k][0]-raw_data_list[j][l][0])**2 + (raw_data_list[j][k][1]-raw_data_list[j][l][1])**2 + (raw_data_list[j][k][2]-raw_data_list[j][l][2])**2)
+                distance_average_tmp[distance_index] += math.sqrt((raw_data_list[j][k][0]-raw_data_list[j][l][0])**2 + (raw_data_list[j][k][1]-raw_data_list[j][l][1])**2 + (raw_data_list[j][k][2]-raw_data_list[j][l][2])**2)
                 distance_index += 1
 
         '''
@@ -159,42 +162,644 @@ for i in range(len(hand_data_list)):
         for k in range(20):
             for l in range(k+1, 21):
                 # x角度
-                angle_average[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
                 angle_index += 1
                 # y角度
-                angle_average[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
                 angle_index += 1
                 # z角度
-                angle_average[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
                 angle_index += 1
                 # 最初の1フレームならmark2を作る
                 if (j==start_indexes[0]) and (k == 0) and (l == 0):
-                    mark2.append("angle_x" + str(k) + str(l))
-                    mark2.append("angle_y" + str(k) + str(l))
-                    mark2.append("angle_z" + str(k) + str(l))
+                    mark2.append("1of4_angle_x" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_y" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_z" + str(k) +":"+ str(l))
         
         '''
         directionの生成
-        averageを求める。単位ベクトル
+        averageを求める。
+        三次元単位ベクトル
         '''
-        direction_index = 0
+        thumb_direction_tmp = np.array([0,0,0], dtype = 'float')
+        index_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        middle_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        ring_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        pinkie_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        # 親指 1 -> 4
+        # 指先 - 指元でベクトルを計算し、その後で単位ベクトルに変換
+        thumb_direction_tmp[0] = raw_data_list[j][4][0] - raw_data_list[j][1][0]
+        thumb_direction_tmp[1] = raw_data_list[j][4][1] - raw_data_list[j][1][1]
+        thumb_direction_tmp[2] = raw_data_list[j][4][2] - raw_data_list[j][1][2]
+        thumb_vector_size = math.sqrt((thumb_direction_tmp[0] ** 2) + (thumb_direction_tmp[1] ** 2) + (thumb_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        thumb_direction_tmp[0] /= thumb_vector_size
+        thumb_direction_tmp[1] /= thumb_vector_size
+        thumb_direction_tmp[2] /= thumb_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        thumb_direction += thumb_direction_tmp
 
-                
+        # 人差し指 5 -> 8
+        index_finger_direction_tmp[0] = raw_data_list[j][8][0] - raw_data_list[j][5][0]
+        index_finger_direction_tmp[1] = raw_data_list[j][8][1] - raw_data_list[j][5][1]
+        index_finger_direction_tmp[2] = raw_data_list[j][8][2] - raw_data_list[j][5][2]
+        index_finger_vector_size = math.sqrt((index_finger_direction_tmp[0] ** 2) + (index_finger_direction_tmp[1] ** 2) + (index_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        index_finger_direction_tmp[0] /= index_finger_vector_size
+        index_finger_direction_tmp[1] /= index_finger_vector_size
+        index_finger_direction_tmp[2] /= index_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        index_finger_direction += index_finger_direction_tmp
 
-    #今まで計算した特徴はすべてのフレームの合計なので、使用フレーム数で割って平均にする
+        # 中指 9 -> 12
+        middle_finger_direction_tmp[0] = raw_data_list[j][12][0] - raw_data_list[j][9][0]
+        middle_finger_direction_tmp[1] = raw_data_list[j][12][1] - raw_data_list[j][9][1]
+        middle_finger_direction_tmp[2] = raw_data_list[j][12][2] - raw_data_list[j][9][2]
+        middle_finger_vector_size = math.sqrt((middle_finger_direction_tmp[0] ** 2) + (middle_finger_direction_tmp[1] ** 2) + (middle_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        middle_finger_direction_tmp[0] /= middle_finger_vector_size
+        middle_finger_direction_tmp[1] /= middle_finger_vector_size
+        middle_finger_direction_tmp[2] /= middle_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        middle_finger_direction += middle_finger_direction_tmp
+
+        # 薬指　13 -> 16
+        ring_finger_direction_tmp[0] = raw_data_list[j][16][0] - raw_data_list[j][13][0]
+        ring_finger_direction_tmp[1] = raw_data_list[j][16][1] - raw_data_list[j][13][1]
+        ring_finger_direction_tmp[2] = raw_data_list[j][16][2] - raw_data_list[j][13][2]
+        ring_finger_vector_size = math.sqrt((ring_finger_direction_tmp[0] ** 2) + (ring_finger_direction_tmp[1] ** 2) + (ring_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        ring_finger_direction_tmp[0] /= ring_finger_vector_size
+        ring_finger_direction_tmp[1] /= ring_finger_vector_size
+        ring_finger_direction_tmp[2] /= ring_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        ring_finger_direction += ring_finger_direction_tmp
+
+        # 小指 17 -> 20
+        pinkie_finger_direction_tmp[0] = raw_data_list[j][20][0] - raw_data_list[j][17][0]
+        pinkie_finger_direction_tmp[1] = raw_data_list[j][20][1] - raw_data_list[j][17][1]
+        pinkie_finger_direction_tmp[2] = raw_data_list[j][20][2] - raw_data_list[j][17][2]
+        pinkie_finger_vector_size = math.sqrt((pinkie_finger_direction_tmp[0] ** 2) + (pinkie_finger_direction_tmp[1] ** 2) + (pinkie_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        pinkie_finger_direction_tmp[0] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[1] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[2] /= pinkie_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        pinkie_finger_direction += pinkie_finger_direction_tmp
+    
+    '''
+    variationの生成
+    区切った中での最後のフレーム - 最初のフレームで変化したベクトルを21個のlandmarkごとに生成する
+    '''
+    variation_tmp = []
+    for j in range(21):
+        mark3.append("1of4_variationX_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[1]-1][j][0] - raw_data_list[start_indexes[0]][j][0])  # x座標の最初のフレームと最後のフレームの差
+        mark3.append("1of4_variationY_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[1]-1][j][1] - raw_data_list[start_indexes[0]][j][1])  # y座標
+        mark3.append("1of4_variationZ_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[1]-1][j][2] - raw_data_list[start_indexes[0]][j][2])  # z座標
+    
+
+    #今まで計算した特徴はすべてのフレームの合計なので、使用　フレーム数で割って平均にする
     for j in range(len(distance_average)):
-        distance_average[j] = distance_average[j] / used_frame_counter
+        distance_average_tmp[j] = distance_average_tmp[j] / used_frame_counter
     for j in range(len(angle_average)):
-        angle_average[j] = angle_average[j] / used_frame_counter
+        angle_average_tmp[j] = angle_average_tmp[j] / used_frame_counter
+    
+    for j in range(3):
+        thumb_direction[j] /= used_frame_counter
+        index_finger_direction[j] /= used_frame_counter
+        middle_finger_direction[j] /= used_frame_counter
+        ring_finger_direction[j] /= used_frame_counter
+        pinkie_finger_direction[j] /= used_frame_counter
+    
+    # データ確認
+    # confirm_variable_name = variation_tmp
+    # print("データ確認")
+    # print(len(confirm_variable_name))
+    # print(confirm_variable_name)
 
+    '''
+    distance_average_tmp: 190個の実数データ
+    angle_average:        630個の実数データ
+    thumb_direction:      
+    '''
+    # この分割域で計算した特徴を一つの変数にまとめる
+    distance_average = np.append(distance_average, distance_average_tmp)
+    angle_average = np.append(angle_average, angle_average_tmp)
+    thumb_direction_averages = np.append(thumb_direction_averages, thumb_direction)
+    index_finger_direction_averages = np.append(index_finger_direction_averages, index_finger_direction)
+    middle_finger_direction_averages = np.append(middle_finger_direction_averages, middle_finger_direction)
+    ring_finger_direction_averages = np.append(ring_finger_direction_averages,ring_finger_direction)
+    pinkie_finger_direction_averages = np.append(pinkie_finger_direction_averages, pinkie_finger_direction)
+    variation = np.append(variation, variation_tmp)
+
+    '''
+    2/4
+    '''
+    # 各区切りで得られた特徴量を一時的に保存する変数
+    distance_average_tmp = np.array([0 for j in range(190)], dtype = 'float')
+    angle_average_tmp = np.array([0 for j in range(630)], dtype = 'float')
+    thumb_direction = np.array([0,0,0], dtype = 'float')
+    index_finger_direction = np.array([0,0,0], dtype = 'float')
+    middle_finger_direction = np.array([0,0,0], dtype = 'float')
+    ring_finger_direction = np.array([0,0,0], dtype = 'float')
+    pinkie_finger_direction = np.array([0,0,0], dtype = 'float')
+    # raw_data_list[1/4 -> 2/4] (separate 2)
+    for j in range(start_indexes[1], start_indexes[2]-1):
+        '''
+        distanceの生成(2/4)
+        '''
+        used_frame_counter += 1 #平均を出すためにいくつフレームがあったのかを記録
+        distance_index = 0
+        for k in range(20):
+            for l in range(k+1, 21):
+                # 隣り合った指や手首のlandmarkならskip
+                if(l-k==1) and k%4!=0 or (k==0 and(l==1 or l==5 or l==9 or l==13 or l==17)):
+                    continue
+                if (j==start_indexes[0]) and (k == 0) and (l == 0):
+                    #もし最初の一回目のdistance生成ならmarkを作る
+                    mark1.append("1of4_distance" + str(k) +":"+ str(l))
+                # 3次元の点と点同士の距離をdistance_average[1-2などに入れる]
+                distance_average_tmp[distance_index] += math.sqrt((raw_data_list[j][k][0]-raw_data_list[j][l][0])**2 + (raw_data_list[j][k][1]-raw_data_list[j][l][1])**2 + (raw_data_list[j][k][2]-raw_data_list[j][l][2])**2)
+                distance_index += 1
+
+        '''
+        angleの生成
+        '''
+        angle_index = 0
+        for k in range(20):
+            for l in range(k+1, 21):
+                # x角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # y角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # z角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # 最初の1フレームならmark2を作る
+                if (j==start_indexes[0]) and (k == 0) and (l == 0):
+                    mark2.append("1of4_angle_x" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_y" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_z" + str(k) +":"+ str(l))
+        
+        '''
+        directionの生成
+        averageを求める。
+        三次元単位ベクトル
+        '''
+        thumb_direction_tmp = np.array([0,0,0], dtype = 'float')
+        index_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        middle_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        ring_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        pinkie_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        # 親指 1 -> 4
+        # 指先 - 指元でベクトルを計算し、その後で単位ベクトルに変換
+        thumb_direction_tmp[0] = raw_data_list[j][4][0] - raw_data_list[j][1][0]
+        thumb_direction_tmp[1] = raw_data_list[j][4][1] - raw_data_list[j][1][1]
+        thumb_direction_tmp[2] = raw_data_list[j][4][2] - raw_data_list[j][1][2]
+        thumb_vector_size = math.sqrt((thumb_direction_tmp[0] ** 2) + (thumb_direction_tmp[1] ** 2) + (thumb_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        thumb_direction_tmp[0] /= thumb_vector_size
+        thumb_direction_tmp[1] /= thumb_vector_size
+        thumb_direction_tmp[2] /= thumb_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        thumb_direction += thumb_direction_tmp
+
+        # 人差し指 5 -> 8
+        index_finger_direction_tmp[0] = raw_data_list[j][8][0] - raw_data_list[j][5][0]
+        index_finger_direction_tmp[1] = raw_data_list[j][8][1] - raw_data_list[j][5][1]
+        index_finger_direction_tmp[2] = raw_data_list[j][8][2] - raw_data_list[j][5][2]
+        index_finger_vector_size = math.sqrt((index_finger_direction_tmp[0] ** 2) + (index_finger_direction_tmp[1] ** 2) + (index_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        index_finger_direction_tmp[0] /= index_finger_vector_size
+        index_finger_direction_tmp[1] /= index_finger_vector_size
+        index_finger_direction_tmp[2] /= index_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        index_finger_direction += index_finger_direction_tmp
+
+        # 中指 9 -> 12
+        middle_finger_direction_tmp[0] = raw_data_list[j][12][0] - raw_data_list[j][9][0]
+        middle_finger_direction_tmp[1] = raw_data_list[j][12][1] - raw_data_list[j][9][1]
+        middle_finger_direction_tmp[2] = raw_data_list[j][12][2] - raw_data_list[j][9][2]
+        middle_finger_vector_size = math.sqrt((middle_finger_direction_tmp[0] ** 2) + (middle_finger_direction_tmp[1] ** 2) + (middle_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        middle_finger_direction_tmp[0] /= middle_finger_vector_size
+        middle_finger_direction_tmp[1] /= middle_finger_vector_size
+        middle_finger_direction_tmp[2] /= middle_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        middle_finger_direction += middle_finger_direction_tmp
+
+        # 薬指　13 -> 16
+        ring_finger_direction_tmp[0] = raw_data_list[j][16][0] - raw_data_list[j][13][0]
+        ring_finger_direction_tmp[1] = raw_data_list[j][16][1] - raw_data_list[j][13][1]
+        ring_finger_direction_tmp[2] = raw_data_list[j][16][2] - raw_data_list[j][13][2]
+        ring_finger_vector_size = math.sqrt((ring_finger_direction_tmp[0] ** 2) + (ring_finger_direction_tmp[1] ** 2) + (ring_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        ring_finger_direction_tmp[0] /= ring_finger_vector_size
+        ring_finger_direction_tmp[1] /= ring_finger_vector_size
+        ring_finger_direction_tmp[2] /= ring_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        ring_finger_direction += ring_finger_direction_tmp
+
+        # 小指 17 -> 20
+        pinkie_finger_direction_tmp[0] = raw_data_list[j][20][0] - raw_data_list[j][17][0]
+        pinkie_finger_direction_tmp[1] = raw_data_list[j][20][1] - raw_data_list[j][17][1]
+        pinkie_finger_direction_tmp[2] = raw_data_list[j][20][2] - raw_data_list[j][17][2]
+        pinkie_finger_vector_size = math.sqrt((pinkie_finger_direction_tmp[0] ** 2) + (pinkie_finger_direction_tmp[1] ** 2) + (pinkie_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        pinkie_finger_direction_tmp[0] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[1] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[2] /= pinkie_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        pinkie_finger_direction += pinkie_finger_direction_tmp
+    
+    '''
+    variationの生成
+    区切った中での最後のフレーム - 最初のフレームで変化したベクトルを21個のlandmarkごとに生成する
+    '''
+    variation_tmp = []
+    for j in range(21):
+        mark3.append("2of4_variationX_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[2]-1][j][0] - raw_data_list[start_indexes[1]][j][0])  # x座標の最初のフレームと最後のフレームの差
+        mark3.append("2of4_variationY_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[2]-1][j][1] - raw_data_list[start_indexes[1]][j][1])  # y座標
+        mark3.append("2of4_variationZ_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[2]-1][j][2] - raw_data_list[start_indexes[1]][j][2])  # z座標
+    
+
+    #今まで計算した特徴はすべてのフレームの合計なので、使用　フレーム数で割って平均にする
+    for j in range(len(distance_average)):
+        distance_average_tmp[j] = distance_average_tmp[j] / used_frame_counter
+    for j in range(len(angle_average)):
+        angle_average_tmp[j] = angle_average_tmp[j] / used_frame_counter
+    
+    for j in range(3):
+        thumb_direction[j] /= used_frame_counter
+        index_finger_direction[j] /= used_frame_counter
+        middle_finger_direction[j] /= used_frame_counter
+        ring_finger_direction[j] /= used_frame_counter
+        pinkie_finger_direction[j] /= used_frame_counter
+    
+    # # データ確認
+    # confirm_variable_name = variation_tmp
+    # print("データ確認")
+    # print(len(confirm_variable_name))
+    # print(confirm_variable_name)
+
+    '''
+    distance_average_tmp: 190個の実数データ
+    angle_average:        630個の実数データ
+    thumb_direction:      
+    '''
+    # この分割域で計算した特徴を一つの変数にまとめる
+    distance_average = np.append(distance_average, distance_average_tmp)
+    angle_average = np.append(angle_average, angle_average_tmp)
+    thumb_direction_averages = np.append(thumb_direction_averages, thumb_direction)
+    index_finger_direction_averages = np.append(index_finger_direction_averages, index_finger_direction)
+    middle_finger_direction_averages = np.append(middle_finger_direction_averages, middle_finger_direction)
+    ring_finger_direction_averages = np.append(ring_finger_direction_averages,ring_finger_direction)
+    pinkie_finger_direction_averages = np.append(pinkie_finger_direction_averages, pinkie_finger_direction)
+    variation = np.append(variation, variation_tmp)
+
+    '''
+    3/4
+    '''
+    # 各区切りで得られた特徴量を一時的に保存する変数
+    distance_average_tmp = np.array([0 for j in range(190)], dtype = 'float')
+    angle_average_tmp = np.array([0 for j in range(630)], dtype = 'float')
+    thumb_direction = np.array([0,0,0], dtype = 'float')
+    index_finger_direction = np.array([0,0,0], dtype = 'float')
+    middle_finger_direction = np.array([0,0,0], dtype = 'float')
+    ring_finger_direction = np.array([0,0,0], dtype = 'float')
+    pinkie_finger_direction = np.array([0,0,0], dtype = 'float')
+    # raw_data_list[2/4 -> 3/4]
+    for j in range(start_indexes[2], start_indexes[3]-1):
+        '''
+        distanceの生成
+        '''
+        used_frame_counter += 1 #平均を出すためにいくつフレームがあったのかを記録
+        distance_index = 0
+        for k in range(20):
+            for l in range(k+1, 21):
+                # 隣り合った指や手首のlandmarkならskip
+                if(l-k==1) and k%4!=0 or (k==0 and(l==1 or l==5 or l==9 or l==13 or l==17)):
+                    continue
+                if (j==start_indexes[0]) and (k == 0) and (l == 0):
+                    #もし最初の一回目のdistance生成ならmarkを作る
+                    mark1.append("1of4_distance" + str(k) +":"+ str(l))
+                # 3次元の点と点同士の距離をdistance_average[1-2などに入れる]
+                distance_average_tmp[distance_index] += math.sqrt((raw_data_list[j][k][0]-raw_data_list[j][l][0])**2 + (raw_data_list[j][k][1]-raw_data_list[j][l][1])**2 + (raw_data_list[j][k][2]-raw_data_list[j][l][2])**2)
+                distance_index += 1
+
+        '''
+        angleの生成
+        '''
+        angle_index = 0
+        for k in range(20):
+            for l in range(k+1, 21):
+                # x角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # y角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # z角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # 最初の1フレームならmark2を作る
+                if (j==start_indexes[0]) and (k == 0) and (l == 0):
+                    mark2.append("1of4_angle_x" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_y" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_z" + str(k) +":"+ str(l))
+        
+        '''
+        directionの生成
+        averageを求める。
+        三次元単位ベクトル
+        '''
+        thumb_direction_tmp = np.array([0,0,0], dtype = 'float')
+        index_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        middle_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        ring_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        pinkie_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        # 親指 1 -> 4
+        # 指先 - 指元でベクトルを計算し、その後で単位ベクトルに変換
+        thumb_direction_tmp[0] = raw_data_list[j][4][0] - raw_data_list[j][1][0]
+        thumb_direction_tmp[1] = raw_data_list[j][4][1] - raw_data_list[j][1][1]
+        thumb_direction_tmp[2] = raw_data_list[j][4][2] - raw_data_list[j][1][2]
+        thumb_vector_size = math.sqrt((thumb_direction_tmp[0] ** 2) + (thumb_direction_tmp[1] ** 2) + (thumb_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        thumb_direction_tmp[0] /= thumb_vector_size
+        thumb_direction_tmp[1] /= thumb_vector_size
+        thumb_direction_tmp[2] /= thumb_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        thumb_direction += thumb_direction_tmp
+
+        # 人差し指 5 -> 8
+        index_finger_direction_tmp[0] = raw_data_list[j][8][0] - raw_data_list[j][5][0]
+        index_finger_direction_tmp[1] = raw_data_list[j][8][1] - raw_data_list[j][5][1]
+        index_finger_direction_tmp[2] = raw_data_list[j][8][2] - raw_data_list[j][5][2]
+        index_finger_vector_size = math.sqrt((index_finger_direction_tmp[0] ** 2) + (index_finger_direction_tmp[1] ** 2) + (index_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        index_finger_direction_tmp[0] /= index_finger_vector_size
+        index_finger_direction_tmp[1] /= index_finger_vector_size
+        index_finger_direction_tmp[2] /= index_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        index_finger_direction += index_finger_direction_tmp
+
+        # 中指 9 -> 12
+        middle_finger_direction_tmp[0] = raw_data_list[j][12][0] - raw_data_list[j][9][0]
+        middle_finger_direction_tmp[1] = raw_data_list[j][12][1] - raw_data_list[j][9][1]
+        middle_finger_direction_tmp[2] = raw_data_list[j][12][2] - raw_data_list[j][9][2]
+        middle_finger_vector_size = math.sqrt((middle_finger_direction_tmp[0] ** 2) + (middle_finger_direction_tmp[1] ** 2) + (middle_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        middle_finger_direction_tmp[0] /= middle_finger_vector_size
+        middle_finger_direction_tmp[1] /= middle_finger_vector_size
+        middle_finger_direction_tmp[2] /= middle_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        middle_finger_direction += middle_finger_direction_tmp
+
+        # 薬指　13 -> 16
+        ring_finger_direction_tmp[0] = raw_data_list[j][16][0] - raw_data_list[j][13][0]
+        ring_finger_direction_tmp[1] = raw_data_list[j][16][1] - raw_data_list[j][13][1]
+        ring_finger_direction_tmp[2] = raw_data_list[j][16][2] - raw_data_list[j][13][2]
+        ring_finger_vector_size = math.sqrt((ring_finger_direction_tmp[0] ** 2) + (ring_finger_direction_tmp[1] ** 2) + (ring_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        ring_finger_direction_tmp[0] /= ring_finger_vector_size
+        ring_finger_direction_tmp[1] /= ring_finger_vector_size
+        ring_finger_direction_tmp[2] /= ring_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        ring_finger_direction += ring_finger_direction_tmp
+
+        # 小指 17 -> 20
+        pinkie_finger_direction_tmp[0] = raw_data_list[j][20][0] - raw_data_list[j][17][0]
+        pinkie_finger_direction_tmp[1] = raw_data_list[j][20][1] - raw_data_list[j][17][1]
+        pinkie_finger_direction_tmp[2] = raw_data_list[j][20][2] - raw_data_list[j][17][2]
+        pinkie_finger_vector_size = math.sqrt((pinkie_finger_direction_tmp[0] ** 2) + (pinkie_finger_direction_tmp[1] ** 2) + (pinkie_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        pinkie_finger_direction_tmp[0] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[1] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[2] /= pinkie_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        pinkie_finger_direction += pinkie_finger_direction_tmp
+    
+    '''
+    variationの生成
+    区切った中での最後のフレーム - 最初のフレームで変化したベクトルを21個のlandmarkごとに生成する
+    '''
+    variation_tmp = []
+    for j in range(21):
+        mark3.append("1of4_variationX_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[3]-1][j][0] - raw_data_list[start_indexes[2]][j][0])  # x座標の最初のフレームと最後のフレームの差
+        mark3.append("1of4_variationY_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[3]-1][j][1] - raw_data_list[start_indexes[2]][j][1])  # y座標
+        mark3.append("1of4_variationZ_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[3]-1][j][2] - raw_data_list[start_indexes[2]][j][2])  # z座標
+    
+
+    #今まで計算した特徴はすべてのフレームの合計なので、使用　フレーム数で割って平均にする
+    for j in range(len(distance_average_tmp)):
+        distance_average_tmp[j] = distance_average_tmp[j] / used_frame_counter
+    for j in range(len(angle_average_tmp)):
+        angle_average_tmp[j] = angle_average_tmp[j] / used_frame_counter
+    
+    for j in range(3):
+        thumb_direction[j] /= used_frame_counter
+        index_finger_direction[j] /= used_frame_counter
+        middle_finger_direction[j] /= used_frame_counter
+        ring_finger_direction[j] /= used_frame_counter
+        pinkie_finger_direction[j] /= used_frame_counter
+    
+    # # データ確認
+    # confirm_variable_name = variation_tmp
+    # print("データ確認")
+    # print(len(confirm_variable_name))
+    # print(confirm_variable_name)
+
+    '''
+    distance_average_tmp: 190個の実数データ
+    angle_average:        630個の実数データ
+    thumb_direction:      
+    '''
+    # この分割域で計算した特徴を一つの変数にまとめる
+    distance_average = np.append(distance_average, distance_average_tmp)
+    angle_average = np.append(angle_average, angle_average_tmp)
+    thumb_direction_averages = np.append(thumb_direction_averages, thumb_direction)
+    index_finger_direction_averages = np.append(index_finger_direction_averages, index_finger_direction)
+    middle_finger_direction_averages = np.append(middle_finger_direction_averages, middle_finger_direction)
+    ring_finger_direction_averages = np.append(ring_finger_direction_averages,ring_finger_direction)
+    pinkie_finger_direction_averages = np.append(pinkie_finger_direction_averages, pinkie_finger_direction)
+    variation = np.append(variation, variation_tmp)
+    
+
+
+    '''
+    4/4
+    '''
+    # 各区切りで得られた特徴量を一時的に保存する変数
+    distance_average_tmp = np.array([0 for j in range(190)], dtype = 'float')
+    angle_average_tmp = np.array([0 for j in range(630)], dtype = 'float')
+    thumb_direction = np.array([0,0,0], dtype = 'float')
+    index_finger_direction = np.array([0,0,0], dtype = 'float')
+    middle_finger_direction = np.array([0,0,0], dtype = 'float')
+    ring_finger_direction = np.array([0,0,0], dtype = 'float')
+    pinkie_finger_direction = np.array([0,0,0], dtype = 'float')
+    # raw_data_list[3/4 -> 4/4]
+    for j in range(start_indexes[3], start_indexes[4]-1):
+        '''
+        distanceの生成
+        '''
+        used_frame_counter += 1 #平均を出すためにいくつフレームがあったのかを記録
+        distance_index = 0
+        for k in range(20):
+            for l in range(k+1, 21):
+                # 隣り合った指や手首のlandmarkならskip
+                if(l-k==1) and k%4!=0 or (k==0 and(l==1 or l==5 or l==9 or l==13 or l==17)):
+                    continue
+                if (j==start_indexes[0]) and (k == 0) and (l == 0):
+                    #もし最初の一回目のdistance生成ならmarkを作る
+                    mark1.append("1of4_distance" + str(k) +":"+ str(l))
+                # 3次元の点と点同士の距離をdistance_average[1-2などに入れる]
+                distance_average_tmp[distance_index] += math.sqrt((raw_data_list[j][k][0]-raw_data_list[j][l][0])**2 + (raw_data_list[j][k][1]-raw_data_list[j][l][1])**2 + (raw_data_list[j][k][2]-raw_data_list[j][l][2])**2)
+                distance_index += 1
+
+        '''
+        angleの生成
+        '''
+        angle_index = 0
+        for k in range(20):
+            for l in range(k+1, 21):
+                # x角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # y角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # z角度
+                angle_average_tmp[angle_index] += math.acos((raw_data_list[j][l][0] - raw_data_list[j][k][0]) / (math.sqrt((raw_data_list[j][l][0]-raw_data_list[j][k][0])**2 + (raw_data_list[j][l][1]-raw_data_list[j][k][1])**2 + (raw_data_list[j][l][2]-raw_data_list[j][k][2])**2)))
+                angle_index += 1
+                # 最初の1フレームならmark2を作る
+                if (j==start_indexes[0]) and (k == 0) and (l == 0):
+                    mark2.append("1of4_angle_x" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_y" + str(k) +":"+ str(l))
+                    mark2.append("1of4_angle_z" + str(k) +":"+ str(l))
+        
+        '''
+        directionの生成
+        averageを求める。
+        三次元単位ベクトル
+        '''
+        thumb_direction_tmp = np.array([0,0,0], dtype = 'float')
+        index_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        middle_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        ring_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        pinkie_finger_direction_tmp = np.array([0,0,0], dtype = 'float')
+        # 親指 1 -> 4
+        # 指先 - 指元でベクトルを計算し、その後で単位ベクトルに変換
+        thumb_direction_tmp[0] = raw_data_list[j][4][0] - raw_data_list[j][1][0]
+        thumb_direction_tmp[1] = raw_data_list[j][4][1] - raw_data_list[j][1][1]
+        thumb_direction_tmp[2] = raw_data_list[j][4][2] - raw_data_list[j][1][2]
+        thumb_vector_size = math.sqrt((thumb_direction_tmp[0] ** 2) + (thumb_direction_tmp[1] ** 2) + (thumb_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        thumb_direction_tmp[0] /= thumb_vector_size
+        thumb_direction_tmp[1] /= thumb_vector_size
+        thumb_direction_tmp[2] /= thumb_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        thumb_direction += thumb_direction_tmp
+
+        # 人差し指 5 -> 8
+        index_finger_direction_tmp[0] = raw_data_list[j][8][0] - raw_data_list[j][5][0]
+        index_finger_direction_tmp[1] = raw_data_list[j][8][1] - raw_data_list[j][5][1]
+        index_finger_direction_tmp[2] = raw_data_list[j][8][2] - raw_data_list[j][5][2]
+        index_finger_vector_size = math.sqrt((index_finger_direction_tmp[0] ** 2) + (index_finger_direction_tmp[1] ** 2) + (index_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        index_finger_direction_tmp[0] /= index_finger_vector_size
+        index_finger_direction_tmp[1] /= index_finger_vector_size
+        index_finger_direction_tmp[2] /= index_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        index_finger_direction += index_finger_direction_tmp
+
+        # 中指 9 -> 12
+        middle_finger_direction_tmp[0] = raw_data_list[j][12][0] - raw_data_list[j][9][0]
+        middle_finger_direction_tmp[1] = raw_data_list[j][12][1] - raw_data_list[j][9][1]
+        middle_finger_direction_tmp[2] = raw_data_list[j][12][2] - raw_data_list[j][9][2]
+        middle_finger_vector_size = math.sqrt((middle_finger_direction_tmp[0] ** 2) + (middle_finger_direction_tmp[1] ** 2) + (middle_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        middle_finger_direction_tmp[0] /= middle_finger_vector_size
+        middle_finger_direction_tmp[1] /= middle_finger_vector_size
+        middle_finger_direction_tmp[2] /= middle_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        middle_finger_direction += middle_finger_direction_tmp
+
+        # 薬指　13 -> 16
+        ring_finger_direction_tmp[0] = raw_data_list[j][16][0] - raw_data_list[j][13][0]
+        ring_finger_direction_tmp[1] = raw_data_list[j][16][1] - raw_data_list[j][13][1]
+        ring_finger_direction_tmp[2] = raw_data_list[j][16][2] - raw_data_list[j][13][2]
+        ring_finger_vector_size = math.sqrt((ring_finger_direction_tmp[0] ** 2) + (ring_finger_direction_tmp[1] ** 2) + (ring_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        ring_finger_direction_tmp[0] /= ring_finger_vector_size
+        ring_finger_direction_tmp[1] /= ring_finger_vector_size
+        ring_finger_direction_tmp[2] /= ring_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        ring_finger_direction += ring_finger_direction_tmp
+
+        # 小指 17 -> 20
+        pinkie_finger_direction_tmp[0] = raw_data_list[j][20][0] - raw_data_list[j][17][0]
+        pinkie_finger_direction_tmp[1] = raw_data_list[j][20][1] - raw_data_list[j][17][1]
+        pinkie_finger_direction_tmp[2] = raw_data_list[j][20][2] - raw_data_list[j][17][2]
+        pinkie_finger_vector_size = math.sqrt((pinkie_finger_direction_tmp[0] ** 2) + (pinkie_finger_direction_tmp[1] ** 2) + (pinkie_finger_direction_tmp[2] ** 2))  # 単位ベクトル計算のためベクトルの大きさを出す
+        pinkie_finger_direction_tmp[0] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[1] /= pinkie_finger_vector_size
+        pinkie_finger_direction_tmp[2] /= pinkie_finger_vector_size
+        # 単位ベクトルが出たので、時間範囲で平均する用の変数に足す
+        pinkie_finger_direction += pinkie_finger_direction_tmp
+    
+    '''
+    variationの生成
+    区切った中での最後のフレーム - 最初のフレームで変化したベクトルを21個のlandmarkごとに生成する
+    '''
+    variation_tmp = []
+    for j in range(21):
+        mark3.append("1of4_variationX_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[4]-1][j][0] - raw_data_list[start_indexes[3]][j][0])  # x座標の最初のフレームと最後のフレームの差
+        mark3.append("1of4_variationY_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[4]-1][j][1] - raw_data_list[start_indexes[3]][j][1])  # y座標
+        mark3.append("1of4_variationZ_" + str(j+1) )
+        variation_tmp.append(raw_data_list[start_indexes[4]-1][j][2] - raw_data_list[start_indexes[3]][j][2])  # z座標
+    
+
+    #今まで計算した特徴はすべてのフレームの合計なので、使用　フレーム数で割って平均にする
+    for j in range(len(distance_average_tmp)):
+        distance_average_tmp[j] = distance_average_tmp[j] / used_frame_counter
+    for j in range(len(angle_average_tmp)):
+        angle_average_tmp[j] = angle_average_tmp[j] / used_frame_counter
+    
+    for j in range(3):
+        thumb_direction[j] /= used_frame_counter
+        index_finger_direction[j] /= used_frame_counter
+        middle_finger_direction[j] /= used_frame_counter
+        ring_finger_direction[j] /= used_frame_counter
+        pinkie_finger_direction[j] /= used_frame_counter
+    
+    # # データ確認
+    # confirm_variable_name = variation_tmp
+    # print("データ確認")
+    # print(len(confirm_variable_name))
+    # print(confirm_variable_name)
+
+    '''
+    distance_average_tmp: 190個の実数データ
+    angle_average:        630個の実数データ
+    thumb_direction:      
+    '''
+    # この分割域で計算した特徴を一つの変数にまとめる
+    distance_average = np.append(distance_average, distance_average_tmp)
+    angle_average = np.append(angle_average, angle_average_tmp)
+    thumb_direction_averages = np.append(thumb_direction_averages, thumb_direction)
+    index_finger_direction_averages = np.append(index_finger_direction_averages, index_finger_direction)
+    middle_finger_direction_averages = np.append(middle_finger_direction_averages, middle_finger_direction)
+    ring_finger_direction_averages = np.append(ring_finger_direction_averages,ring_finger_direction)
+    pinkie_finger_direction_averages = np.append(pinkie_finger_direction_averages, pinkie_finger_direction)
+    variation = np.append(variation, variation_tmp)
 
     
-    # raw_data_list[1/4 -> 2/4]
-    for j in range(start_indexes[1], start_indexes[2]):
+    #print("ここからファイルに書き込む")
+    #計算した特徴をファイルに書き込むために一つの変数にまとめる
+    all_features = np.array([], dtype="float")
+    all_features = np.append(all_features, distance_average)
+    all_features = np.append(all_features, angle_average)
+    all_features = np.append(all_features, thumb_direction_averages)
+    all_features = np.append(all_features, index_finger_direction_averages)
+    all_features = np.append(all_features, middle_finger_direction_averages)
+    all_features = np.append(all_features, ring_finger_direction_averages)
+    all_features = np.append(all_features, pinkie_finger_direction_averages)
+    all_features = np.append(all_features, variation)
 
-    # raw_data_list[2/4 -> 3/4]
-    for j in range(start_indexes[2], start_indexes[3]):
-        
-
-    # raw_data_list[3/4 -> 4/4]
-    for j in range(start_indexes[3], start_indexes[4]):
+    print(all_features)
+    np.savetxt(wrtdir + Name + '_' + str(i) + '_' + 'feature.csv', all_features, delimiter=',')
+    print(wrtdir + Name + '_' + str(i) + '_' + 'feature.csv')
