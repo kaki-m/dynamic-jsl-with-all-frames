@@ -65,9 +65,12 @@ if minDataNum < 4:
 コード上部のSTATIC_FILE_USE_NUMに定義される
 使用フレームはだいたい真ん中にしたいが、そのスタート位置はコード上部START_INDEXに定義する
 '''
-for i in range(1,42):  # 静的指文字のファイル名を減らしていく
+for i in range(1,42):  # 静的指文字のファイル名を12個に減らす
     new_file_list = []
-    j = START_INDEX  # カウンタ変数
+    if len(hand_data_list[i]) <= 12:
+        j = 0
+    else:
+        j = START_INDEX  # カウンタ変数
     while len(new_file_list) < STATIC_FILE_USE_NUM:  # 規定ファイル数を確保するまで
         try:
             new_file_list.append(hand_data_list[i][j])
@@ -75,7 +78,9 @@ for i in range(1,42):  # 静的指文字のファイル名を減らしていく
             print("静的指文字のファイル数が足りませんでした")
             print("hand_type: " + str(i))
             print("ファイル箇所: " + str(j))
-            exit(1)
+            #exit(1)
+            #ここで強制終了せずに12以下のファイル数でも実行する
+            break
         j = j + 1
     # new_file_listに置き換える
     hand_data_list[i] = copy.deepcopy(new_file_list)
@@ -98,7 +103,10 @@ for i in tqdm(range(1,len(hand_data_list))):
     # ここまででraw_data_listに座標データ、frame_numにそのhand_typeのフレーム数が入っている
     start_indexes = [0]
     for j in range(3):
-        start_indexes.append(int(start_indexes[j] + split_num))
+        if j == 3:
+            start_indexes.append(int(start_indexes[j] + split_num))
+        else:
+            start_indexes.append(math.ceil(start_indexes[j] + split_num))
     
     start_indexes.append(frame_num)
     # print("start_indexes: " + str(start_indexes))
@@ -249,13 +257,21 @@ for i in tqdm(range(1,len(hand_data_list))):
     variation_tmp = []
     for j in range(21):
         mark3.append("1of4_variationX_" + str(j+1) )
-        variation_tmp.append(raw_data_list[start_indexes[1]-1][j][0] - raw_data_list[start_indexes[0]][j][0])  # x座標の最初のフレームと最後のフレームの差
+        try:
+            variation_tmp.append(raw_data_list[start_indexes[1]-1][j][0] - raw_data_list[start_indexes[0]][j][0])  # x座標の最初のフレームと最後のフレームの差
+        except:
+            print(raw_data_list)
         mark3.append("1of4_variationY_" + str(j+1) )
         variation_tmp.append(raw_data_list[start_indexes[1]-1][j][1] - raw_data_list[start_indexes[0]][j][1])  # y座標
         mark3.append("1of4_variationZ_" + str(j+1) )
         variation_tmp.append(raw_data_list[start_indexes[1]-1][j][2] - raw_data_list[start_indexes[0]][j][2])  # z座標
     
-
+    if used_frame_counter == 0:
+        print("0で割るパターンが実行")
+        print("hand_type: " + str(i))
+        print("frame_num: " + str(frame_num))
+        print("split_num: " + str(split_num))
+        print(start_indexes)
     #今まで計算した特徴はすべてのフレームの合計なので、使用　フレーム数で割って平均にする
     for j in range(len(distance_average)):
         distance_average_tmp[j] = distance_average_tmp[j] / used_frame_counter
@@ -743,14 +759,21 @@ for i in tqdm(range(1,len(hand_data_list))):
     variationの生成
     区切った中での最後のフレーム - 最初のフレームで変化したベクトルを21個のlandmarkごとに生成する
     '''
-    variation_tmp = []
-    for j in range(21):
-        mark3.append("1of4_variationX_" + str(j+1) )
-        variation_tmp.append(raw_data_list[start_indexes[4]-1][j][0] - raw_data_list[start_indexes[3]][j][0])  # x座標の最初のフレームと最後のフレームの差
-        mark3.append("1of4_variationY_" + str(j+1) )
-        variation_tmp.append(raw_data_list[start_indexes[4]-1][j][1] - raw_data_list[start_indexes[3]][j][1])  # y座標
-        mark3.append("1of4_variationZ_" + str(j+1) )
-        variation_tmp.append(raw_data_list[start_indexes[4]-1][j][2] - raw_data_list[start_indexes[3]][j][2])  # z座標
+    # variation_tmp = []
+    # for j in range(21):
+    #     mark3.append("1of4_variationX_" + str(j+1) )
+    #     try:
+    #         variation_tmp.append(raw_data_list[start_indexes[4]-1][j][0] - raw_data_list[start_indexes[3]][j][0])  # x座標の最初のフレームと最後のフレームの差
+    #     except:
+    #         print("raw_data_listの長さ: " + str(len(raw_data_list)))
+    #         print(start_indexes)
+    #         print(raw_data_list[start_indexes[4]-1][j][0])
+    #         print(raw_data_list)
+    #         print(raw_data_list[start_indexes[3]])
+    #     mark3.append("1of4_variationY_" + str(j+1) )
+    #     variation_tmp.append(raw_data_list[start_indexes[4]-1][j][1] - raw_data_list[start_indexes[3]][j][1])  # y座標
+    #     mark3.append("1of4_variationZ_" + str(j+1) )
+    #     variation_tmp.append(raw_data_list[start_indexes[4]-1][j][2] - raw_data_list[start_indexes[3]][j][2])  # z座標
     
 
     #今まで計算した特徴はすべてのフレームの合計なので、使用　フレーム数で割って平均にする
@@ -785,7 +808,7 @@ for i in tqdm(range(1,len(hand_data_list))):
     middle_finger_direction_averages = np.append(middle_finger_direction_averages, middle_finger_direction)
     ring_finger_direction_averages = np.append(ring_finger_direction_averages,ring_finger_direction)
     pinkie_finger_direction_averages = np.append(pinkie_finger_direction_averages, pinkie_finger_direction)
-    variation = np.append(variation, variation_tmp)
+    # variation = np.append(variation, variation_tmp)
 
     
     #print("ここからファイルに書き込む")
@@ -798,8 +821,8 @@ for i in tqdm(range(1,len(hand_data_list))):
     all_features = np.append(all_features, middle_finger_direction_averages)
     all_features = np.append(all_features, ring_finger_direction_averages)
     all_features = np.append(all_features, pinkie_finger_direction_averages)
-    all_features = np.append(all_features, variation)
+    # all_features = np.append(all_features, variation)
 
-    print(all_features)
+    # print(all_features)
     np.savetxt(wrtdir + Name + '_' + str(i) + '_' + 'feature.csv', all_features, delimiter=',')
-    print(wrtdir + Name + '_' + str(i) + '_' + 'feature.csv')
+    # print(wrtdir + Name + '_' + str(i) + '_' + 'feature.csv')
