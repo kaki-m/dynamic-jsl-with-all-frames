@@ -172,6 +172,8 @@ def feature_caluc(start_index, end_index, distance_average, angle_average, thumb
     ring_finger_direction_averages = np.append(ring_finger_direction_averages,ring_finger_direction)
     pinkie_finger_direction_averages = np.append(pinkie_finger_direction_averages, pinkie_finger_direction)
 
+    return distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages
+
 
 
 STATIC_FILE_USE_NUM = 12  # 静的指文字の特徴量生成に使用するフレーム数
@@ -308,7 +310,7 @@ for i in tqdm(range(1,len(hand_data_list))):
     pinkie_finger_direction_averages = np.array([], dtype = 'float')
 
     # raw_data_list[0 -> 1/4]
-    feature_caluc(start_indexes[0], start_indexes[1], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
+    distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages = feature_caluc(start_indexes[0], start_indexes[1], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
     # variation 1個目(全3個)
     for j in range(21):
         # mark3.append("1of4_variationX_" + str(j+1) )
@@ -319,7 +321,7 @@ for i in tqdm(range(1,len(hand_data_list))):
         variation = np.append(variation, raw_data_list[start_indexes[1]][j][2] - raw_data_list[start_indexes[0]][j][2])  # z座標
 
     # raw_data_list[1/4 -> 2/4]
-    feature_caluc(start_indexes[1], start_indexes[2], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
+    distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages = feature_caluc(start_indexes[1], start_indexes[2], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
     # variation 2個目(全3個)
     for j in range(21):
         # mark3.append("1of4_variationX_" + str(j+1) )
@@ -330,7 +332,7 @@ for i in tqdm(range(1,len(hand_data_list))):
         variation = np.append(variation, raw_data_list[start_indexes[2]][j][2] - raw_data_list[start_indexes[1]][j][2])  # z座標
 
     # raw_data_list[2/4 -> 3/4]
-    feature_caluc(start_indexes[2], start_indexes[3], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
+    distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages = feature_caluc(start_indexes[2], start_indexes[3], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
     # variation 一個目(全3個)
     for j in range(21):
         # mark3.append("1of4_variationX_" + str(j+1) )
@@ -346,7 +348,7 @@ for i in tqdm(range(1,len(hand_data_list))):
         variation = np.append(variation, raw_data_list[start_indexes[3]][j][2] - raw_data_list[start_indexes[2]][j][2])  # z座標
 
     # raw_data_list[3/4 -> 4/4]
-    feature_caluc(start_indexes[3], start_indexes[4], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
+    distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages = feature_caluc(start_indexes[3], start_indexes[4], distance_average, angle_average, thumb_direction_averages, index_finger_direction_averages, middle_finger_direction_averages, ring_finger_direction_averages, pinkie_finger_direction_averages)
     # variationは3つまでしか生成できない
 
 

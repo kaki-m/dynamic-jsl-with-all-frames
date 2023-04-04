@@ -1,8 +1,18 @@
+
 import numpy as np
-l1 = np.array([1,2])
-l2 = np.array([3,4])
 
-l3 = l1+l2
+def f(x, y, averages):
+    print("関数内プリント始め")
+    averages = np.append(averages, x*y)
+    print(averages)
+    print("関数内プリント終わり")
+    return averages
 
-print(l3)
 
+averages = np.array([], dtype='float')
+print(averages)
+averages = np.append(averages, 1*1)
+print(averages)
+
+averages = f(1,2,averages)
+print(averages)
